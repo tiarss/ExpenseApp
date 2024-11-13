@@ -19,8 +19,8 @@ func SetupRouter(db *gorm.DB) *mux.Router {
 
 	protected.HandleFunc("/categories", controllers.GetCategories(db)).Methods("GET")
 	protected.HandleFunc("/categories", controllers.CreateCategory(db)).Methods("POST")
-	// protected.HandleFunc("/categories/{id}", controllers.GetCategoryById(db)).Methods("GET")
-	// protected.HandleFunc("/categories/{id}", controllers.UpdateCategory(db)).Methods("PUT")
+	protected.HandleFunc("/categories/categoriesId", controllers.GetCategoryById(db)).Methods("GET")
+	protected.HandleFunc("/categories/categoriesId", controllers.UpdateCategory(db)).Methods("PUT")
 	// protected.HandleFunc("/categories/{id}", controllers.DeleteCategory(db)).Methods("DELETE")
 	// 	protected.HandleFunc("/protected", func(w http.ResponseWriter, r *http.Request) {
 	// 		w.Write([]byte("Protected route"))
