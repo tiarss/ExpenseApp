@@ -3,7 +3,6 @@ package controllers
 import (
 	"encoding/json"
 	"expense-app-backend/models"
-	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -45,19 +44,27 @@ func GetCategories(db *gorm.DB) http.HandlerFunc {
 			SubCategory  []subCategoryResponse `json:"sub_categories"`
 		}
 
-		var categories []Category
-		result := db.Preload("SubCategory").Limit(10).Find(&categories)
+		name := r.URL.Query().Get("name")
+		categoryType := r.URL.Query().Get("category_type")
 
+		query := db
+		if name != "" {
+			query = query.Where("name = ?", name)
+		}
+		if categoryType != "" {
+			query = query.Where("category_type = ?", categoryType)
+		}
+
+		var categories []Category
+		result := query.Preload("SubCategory").Limit(10).Find(&categories)
 		if result.Error != nil {
-			fmt.Println(result.Error)
+			http.Error(w, "Failed to retrieve categories", http.StatusInternalServerError)
 			return
 		}
 
 		var response []categoryResponse
 		for _, category := range categories {
-
 			subCategoryResponses := make([]subCategoryResponse, len(category.SubCategory))
-
 			for i, subCategory := range category.SubCategory {
 				subCategoryResponses[i] = subCategoryResponse{
 					ID:   subCategory.ID.String(),
@@ -75,7 +82,6 @@ func GetCategories(db *gorm.DB) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-
 		responseJson := struct {
 			StatusCode int                `json:"status_code"`
 			Data       []categoryResponse `json:"data"`
@@ -86,7 +92,9 @@ func GetCategories(db *gorm.DB) http.HandlerFunc {
 			Message:    "Categories successfully retrieved",
 		}
 
-		json.NewEncoder(w).Encode(responseJson)
+		if err := json.NewEncoder(w).Encode(responseJson); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -411,5 +419,61 @@ func UpdateCategory(db *gorm.DB) http.HandlerFunc {
 		}
 
 		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func DeleteCategory(db *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var category models.Category
+		if err := db.Where("id = ?", r.URL.Query().Get("id")).First(&category).Error; err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			errorResponse := struct {
+				StatusCode int    `json:"status_code"`
+				Message    string `json:"message"`
+			}{
+				StatusCode: http.StatusNotFound,
+				Message:    "Category not found",
+			}
+			json.NewEncoder(w).Encode(errorResponse)
+			return
+		}
+
+		for _, subCategory := range category.SubCategories {
+			if err := db.Where("id = ?", subCategory.ID).Delete(&models.SubCategory{}).Error; err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				errorResponse := struct {
+					StatusCode int    `json:"status_code"`
+					Message    string `json:"message"`
+				}{
+					StatusCode: http.StatusInternalServerError,
+					Message:    "Failed to delete sub-category",
+				}
+				json.NewEncoder(w).Encode(errorResponse)
+				return
+			}
+		}
+
+		if err := db.Delete(&category).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorResponse := struct {
+				StatusCode int    `json:"status_code"`
+				Message    string `json:"message"`
+			}{
+				StatusCode: http.StatusInternalServerError,
+				Message:    "Failed to delete category",
+			}
+			json.NewEncoder(w).Encode(errorResponse)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		errorResponse := struct {
+			StatusCode int    `json:"status_code"`
+			Message    string `json:"message"`
+		}{
+			StatusCode: http.StatusOK,
+			Message:    "Category deleted successfully",
+		}
+		json.NewEncoder(w).Encode(errorResponse)
 	}
 }
