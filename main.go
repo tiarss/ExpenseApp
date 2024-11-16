@@ -22,7 +22,7 @@ func initDatabase() {
 		log.Fatalf("failed to connect database: %v", err)
 	}
 
-	db.AutoMigrate(&models.Category{}, &models.SubCategory{}, &models.User{})
+	db.AutoMigrate(&models.Category{}, &models.SubCategory{}, &models.User{}, &models.Account{})
 	fmt.Println("Database connected and table migrated")
 }
 
